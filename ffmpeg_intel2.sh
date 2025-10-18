@@ -8,7 +8,8 @@ function cleanup {
 
 trap cleanup SIGINT
 
-
+handbrake_path=""
+ffmpeg_path=""
 source_path=""
 dest_path="./"
 max_size=800
@@ -36,13 +37,9 @@ encode_video()
 			case "$codec" in
 				h264)
 					Encoder="qsv_h264"
-#					Encoder="h264_qsv"
-#					preset="intel_qsv_h264"
 					;;
 				hevc)
 					Encoder="qsv_h265"
-#					Encoder="hevc_qsv"
-#					preset="intel_qsv_hevc"
 					;;
 #				vp9)
 #					Encoder="vp9_qsv"
@@ -50,16 +47,11 @@ encode_video()
 #					;;
 				h265)
 					Encoder="hevc_vaapi"
-#					Encoder="hevc_qsv"
-#					preset="intel_qsv_hevc"
 					;;
 				av1)
 					Encoder="qsv_av1"
-#					Encoder="av1_qsv"
-#					preset="intel_qsv_av1"
 					;;
 				*)
-#					Encoder = "copy"
 					Encoder="qsv_h264"
 					;;
 			esac
@@ -352,22 +344,3 @@ echo "maxrate = $maxrate"
 echo "bufsize = $bufsize"
 
 encode_directory "$source_path"
-
-
-# Loop through each file in the directory
-#for file in "$source_path"/*; do
-#    # Check if it's a file (not a directory)
-#    if [ -f "$file" ]; then
-#        input_file="$(basename "$file")"
-#		size=$(stat -c%s "$file")
-		
-#		filename_without_extension="${input_file%.*}"
-#		output_video="$dest_path""$filename_without_extension"".av1.mp4"
-		
-#		if [ "$size" -gt "$max_size" ]; then
-#			encode_video "$file" "$output_video" "$bitrate" "$maxrate" "$bufsize"
-#		fi
-
-#   fi
-#done
-
