@@ -8,7 +8,7 @@ function cleanup {
 
 trap cleanup SIGINT
 
-handbrake_path=""
+handbrake_path="/media3/Multimedia/decoder/HandBrake/build/"
 ffmpeg_path=""
 source_path=""
 dest_path="./"
@@ -56,7 +56,7 @@ encode_video()
 					;;
 			esac
 			echo "Encoding with $encoder $Encoder"
-			/media3/Multimedia/decoder/HandBrake/build/HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 -e "$Encoder" --vb "$src_bitrate" --multi-pass
+			"$handbrake_path"HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 -e "$Encoder" --vb "$src_bitrate" --multi-pass
 #			/media3/Multimedia/decoder/HandBrake/build/HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 -e "$Encoder" --quality 22 --vb "$src_bitrate" --preset "Fast 1080p30" --multi-pass
 #			ffmpeg -v verbose -hwaccel qsv -i "$input_file" -vf 'format=p010le,hwupload' -c:v "$encoder" -preset "$preset" -b:v "$bitrate"k -maxrate "$maxrate"k -bufsize "$bufsize"k "$output_video"
 		else
@@ -64,18 +64,12 @@ encode_video()
 			case "$codec" in
 				h264)
 					Encoder="h264_vaapi"
-#					Encoder="h264_qsv"
-#					preset="intel_qsv_h264"
 					;;
 				hevc)
 					Encoder="hevc_vaapi"
-#					Encoder="hevc_qsv"
-#					preset="intel_qsv_hevc"
 					;;
 				h265)
 					Encoder="hevc_vaapi"
-#					Encoder="hevc_qsv"
-#					preset="intel_qsv_hevc"
 					;;
 #				vp9)
 #					Encoder="vp9_qsv"
@@ -83,17 +77,14 @@ encode_video()
 #					;;
 				av1)
 					Encoder="av1_vaapi"
-#					Encoder="av1_qsv"
-#					preset="intel_qsv_av1"
 					;;
 				*)
-#					Encoder = "copy"
 					Encoder="h264_vaapi"
 					;;
 			esac
 			echo "Encoding with $encoder $Encoder"
 			echo "Encoding with VAAPI"
-			ffmpeg -vaapi_device /dev/dri/renderD128 -i "$input_file" -vf 'format=nv12,hwupload' -c:v "$Encoder" -b:v "$src_bitrate"k -maxrate "$maxrate"k -bufsize "$bufsize"k "$output_video"
+			"$ffmpeg_path"ffmpeg -vaapi_device /dev/dri/renderD128 -i "$input_file" -vf 'format=nv12,hwupload' -c:v "$Encoder" -b:v "$src_bitrate"k -maxrate "$maxrate"k -bufsize "$bufsize"k "$output_video"
 			fi
 		
 	else
