@@ -22,6 +22,8 @@ codec="av1"
 src_bitrate=0
 preset=""
 encoder_type="ffmpeg"
+multi_pass=0
+CRF=0
 
 
 encode_video()
@@ -33,24 +35,29 @@ encode_video()
 	echo "Executing: $input_file $output_video $src_bitrate"
 		
 	if [ ! -f "$output_video" ]; then
-		if [[ "$encoder" == "qsv" ]]; then
-		
-#			local value=$(add_preset)
-#			value+=$(add_bitrate)
-#			value+=$(add_encoder)
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			command=""$ffmpeg_path"ffmpeg $(add_decode_setting) -i "$input_file" $(add_encode_setting) $(add_encoder) $(add_bitrate) $(add_CRF) $(add_maxrate) $(add_bufsize) "$output_video""
+
+#			if [[ "$encoder" == "qsv" ]]; then
+#				command=""$ffmpeg_path"ffmpeg -init_hw_device qsv -hwaccel qsv -hwaccel_output_format qsv -i "$input_file" $(add_encoder) $(add_bitrate) $(add_CRF) $(add_maxrate) $(add_bufsize) "$output_video""
+#			else
+#				command=""$ffmpeg_path"ffmpeg -vaapi_device /dev/dri/renderD128 -i "$input_file" -vf 'format=nv12,hwupload' $(add_encoder) $(add_CRF) $(add_bitrate) $(add_maxrate) $(add_bufsize) "$output_video""
+#			fi
+			echo "Executing: $command"
+			eval "$command"
 			
-#			echo "encode String is $value" 
-			command=""$handbrake_path"HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 $(add_preset) $(add_encoder) --multi-pass  $(add_bitrate)"
-			echo "Executing: $command"
-			eval "$command"
 		else
-#			echo "Encoding with ffmpeg $encoder $Encoder"
-			command=""$ffmpeg_path"ffmpeg -vaapi_device /dev/dri/renderD128 -i "$input_file" -vf 'format=nv12,hwupload' $(add_encoder) $(add_bitrate) $(add_maxrate) $(add_bufsize) "$output_video""
+			command=""$handbrake_path"HandBrakeCLI -i "$input_file" -o "$output_video" $(add_audio) $(add_decode_setting) $(add_encode_setting) $(add_preset) $(add_multi_pass) $(add_encoder) $(add_bitrate) $(add_CRF) $(add_maxrate) $(add_bufsize)"
+#			if [[ "$encoder" == "qsv" ]]; then
+#				command=""$handbrake_path"HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 --enable-qsv-decoding $(add_preset) $(add_multi_pass) $(add_encoder) $(add_bitrate) $(add_maxrate)"
+#			else
+#				command=""$handbrake_path"HandBrakeCLI -i "$input_file" -o "$output_video" -E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3 $(add_preset) $(add_multi_pass) $(add_encoder) $(add_bitrate) $(add_maxrate)"
+#
+#			fi
 			echo "Executing: $command"
 			eval "$command"
-#			"$ffmpeg_path"ffmpeg -vaapi_device /dev/dri/renderD128 -i "$input_file" -vf 'format=nv12,hwupload' -c:v "$Encoder" -b:v "$src_bitrate"k -maxrate "$maxrate"k -bufsize "$bufsize"k "$output_video"
-			fi
-		
+
+		fi
 	else
 		echo "$output_video ALREADY exist"
 	fi
@@ -90,6 +97,11 @@ process_file()
 			addon="va.$addon"
 		else
 			addon="qsv.$addon"
+		fi
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			addon="ff.$addon"
+		else
+			addon="hb.$addon"
 		fi
 		
 		echo "addon $addon"
@@ -137,9 +149,225 @@ process_file()
 	fi
 }
 
-check_file_size() {
+add_multi_pass()
+{
+	if (( multi_pass > 0 )); then
+		if [[ "$encoder_type" == "handbrake" ]]; then
+			echo "--multi-pass" 
+		fi
+	fi
+}
 
+
+add_preset()
+{
+#	echo "--preset \""Very Fast 720p30""
+	if [[ -n "$preset" ]]; then 
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			echo "-p $preset"
+		elif [[ "$encoder_type" == "handbrake" ]]; then
+	#		printf -- "--preset \"%s\" " "$preset" 
+			echo "--preset \"$preset\"" 
+		fi
+	fi
 	
+}
+
+add_bitrate()
+{
+	if (( src_bitrate > 0 )); then
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			echo "-b:v ${src_bitrate}k" 
+		elif [[ "$encoder_type" == "handbrake" ]]; then
+			echo "--vb ${src_bitrate}k" 
+		fi
+	fi
+}
+
+add_maxrate()
+{
+	if (( maxrate > 0 )); then
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			echo "-maxrate ${maxrate}k" 
+		elif [[ "$encoder_type" == "handbrake" ]]; then
+			echo "--vbv-maxrate ${maxrate}k" 
+		fi
+	fi
+}
+
+add_bufsize()
+{
+	if (( bufsize > 0 )); then
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			echo "-bufsize ${bufsize}k" 
+		elif [[ "$encoder_type" == "handbrake" ]]; then
+			echo "--vbv-bufsize ${bufsize}k" 
+		fi
+	fi
+}
+
+
+add_CRF()
+{
+#	local Value=""
+	if (( CRF > 0 )); then
+		if [[ "$encoder_type" == "ffmpeg" ]]; then
+			if [ "$encoder" == "qsv" ] || [ "$encoder" == "vaapi" ]; then
+				echo "-global_quality ${CRF}"
+			else
+				echo "-crf ${CRF}"
+			fi
+		elif [[ "$encoder_type" == "handbrake" ]]; then
+			echo "-q ${CRF}"
+		fi
+	fi
+	
+#	if [[ -n "$Encoder" && "$Encoder" != "" ]]; then 
+#		echo "$Encoder "		
+#	fi
+			
+		
+#			echo "-global_quality ${CRF} "
+#			local quality=""
+#			case "$codec" in
+#				h264)
+#					quality="-crf ${CRF} "
+#					;;
+#				hevc)
+#					quality="-crf ${CRF} "
+#					;;
+#				h265)
+#					quality="-crf ${CRF} "
+#					;;
+	#				vp9)
+	#					Encoder="vp9_qsv"
+	#					preset="intel_qsv_vp9"
+	#					;;
+#				av1)
+#					quality="-global_quality ${CRF} "
+#					;;
+#				*)
+#					quality="-crf ${CRF} "
+#					;;
+#			esac
+#			if [[ -n "$quality" ]]; then 
+#				echo "$quality "		
+#			fi
+		
+#		fi
+#	fi
+}
+
+
+add_encoder()
+{
+	local Encoder=""
+	if [[ "$encoder_type" == "ffmpeg" ]]; then
+		if [ "$encoder" == "qsv" ] || [ "$encoder" == "vaapi" ]; then
+			case "$codec" in
+				h264)
+					Encoder="-c:v h264_$encoder"
+					;;
+				hevc)
+					Encoder="-c:v hevc_$encoder"
+					;;
+				h265)
+					Encoder="-c:v hevc_$encoder"
+					;;
+				av1)
+					Encoder="-c:v av1_$encoder"
+					;;
+				*)
+					Encoder="-c:v $encoder"
+					;;
+			esac
+		else
+			Encoder="-c:v $codec"
+		fi
+	else
+		if [[ "$encoder" == "qsv" ]]; then
+			case "$codec" in
+				h264)
+					Encoder="-e qsv_h264"
+					;;
+				hevc)
+					Encoder="-e qsv_h265"
+					;;
+				h265)
+					Encoder="-e qsv_h265"
+					;;
+				av1)
+					Encoder="-e qsv_av1"
+					;;
+				*)
+					Encoder="-e qsv_h264"
+					;;
+			esac
+		else
+			Encoder="-e $codec"
+		fi
+	fi
+	
+	
+	if [[ -n "$Encoder" && "$Encoder" != "" ]]; then 
+		echo "$Encoder"		
+	fi
+}
+
+
+add_decode_setting()
+{
+	local Decoder=""
+#	local decode_codec="$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $input_file)"
+	if [[ "$encoder_type" == "ffmpeg" ]]; then
+		if [[ "$encoder" == "qsv" ]]; then
+			if [[ "$codec" == "h264" ]] && [[ $(get_decode_codec) == "av1" ]]; then
+				Decoder=""
+			else
+				Decoder="-init_hw_device qsv -hwaccel qsv -hwaccel_output_format qsv"
+			fi
+		elif [[ "$encoder" == "vaapi" ]]; then
+			eDecoder="-vaapi_device /dev/dri/renderD128"
+		fi
+	else
+		if [[ "$encoder" == "qsv" ]]; then
+			Decoder="--enable-hw-decoding qsv" 
+		fi
+	fi
+	if [[ -n "$Decoder" && "$Decoder" != "" ]]; then 
+		echo "$Decoder"		
+	fi
+
+}
+
+add_encode_setting()
+{
+#	local Encoder=""
+	if [[ "$encoder_type" == "ffmpeg" ]]; then
+		if [[ "$encoder" == "vaapi" ]]; then
+			echo "-vf 'format=nv12,hwupload'"
+		fi
+	fi
+#	if [[ -n "$Encoder" && "$Encoder" != "" ]]; then 
+#		echo "$Encoder "		
+#	fi
+
+}
+
+add_audio()
+{
+	#local Audio=""
+	if [[ "$encoder_type" == "handbrake" ]]; then
+		echo "-E copy –audio-copy-mask ac3,dts,dtshd –audio-fallback ffac3"
+	fi
+#	if [[ -n "$Audio" && "$Audio" != "" ]]; then 
+#		echo "$Audio "		
+#	fi
+
+}
+
+
+check_file_size() {
     local file="$1"
 
     if [ -f "$file" ]; then
@@ -152,111 +380,11 @@ check_file_size() {
 }
 
 
-add_preset()
+
+get_decode_codec()
 {
-#	echo "--preset \""Very Fast 720p30""
-	if [[ -n "$preset" ]]; then 
-		if [[ "$encoder_type" == "ffmpeg" ]]; then
-			echo "-p $preset "
-		else
-	#		printf -- "--preset \"%s\" " "$preset" 
-			echo "--preset \"$preset\" " 
-		fi
-	fi
-	
+	echo "$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $input_file)"
 }
-
-add_bitrate()
-{
-	if (( src_bitrate > 0 )); then
-		if [[ "$encoder_type" == "ffmpeg" ]]; then
-			echo "-b:v ${src_bitrate}k " 
-		else
-			echo "--vb ${src_bitrate}k " 
-		fi
-	fi
-}
-
-add_maxrate()
-{
-	if (( maxrate > 0 )); then
-		if [[ "$encoder_type" == "ffmpeg" ]]; then
-			echo "-maxrate ${maxrate}k " 
-		
-		fi
-	fi
-}
-
-add_bufsize()
-{
-	if (( bufsize > 0 )); then
-		if [[ "$encoder_type" == "ffmpeg" ]]; then
-			echo "-bufsize ${bufsize}k " 
-		
-		fi
-	fi
-}
-
-
-
-add_encoder()
-{
-	if [[ "$encoder_type" == "ffmpeg" ]]; then
-		local Encoder="h264_vaapi"
-		case "$codec" in
-			h264)
-				Encoder="h264_vaapi"
-				;;
-			hevc)
-				Encoder="hevc_vaapi"
-				;;
-			h265)
-				Encoder="hevc_vaapi"
-				;;
-#				vp9)
-#					Encoder="vp9_qsv"
-#					preset="intel_qsv_vp9"
-#					;;
-			av1)
-				Encoder="av1_vaapi"
-				;;
-			*)
-				Encoder="h264_vaapi"
-				;;
-		esac
-		if [[ -n "$Encoder" ]]; then 
-			echo "-c:v $Encoder "		
-		fi
-	else		
-		local Encoder="h264_qsv"
-		case "$codec" in
-			h264)
-				Encoder="qsv_h264"
-				;;
-			hevc)
-				Encoder="qsv_h265"
-				;;
-	#				vp9)
-	#					Encoder="vp9_qsv"
-	#					preset="intel_qsv_vp9"
-	#					;;
-			h265)
-				Encoder="qsv_h265"
-				;;
-			av1)
-				Encoder="qsv_av1"
-				;;
-			*)
-				Encoder="qsv_h264"
-				;;
-		esac
-		if [[ -n "$Encoder" ]]; then 
-			echo "-e $Encoder "		
-		fi
-	fi
-}
-
-
 
 get_bitrate()
 {
@@ -379,6 +507,22 @@ process(){
 				shift 2
 	#			echo "preset $preset"	
 				;;
+			-multi_pass)
+				multi_pass="$2"
+				shift 2
+				;;
+			-encoder_type)
+				encoder_type="$2"
+				shift 2
+				;;
+			-CRF)
+				CRF="$2"
+				shift 2
+				;;
+				
+				
+				
+				
 			-arrExt)
 				# Check if the next argument exists
 				if [[ -n "$2" ]]; then
@@ -415,16 +559,14 @@ process(){
 	echo "src_bitrate = $src_bitrate"
 
 	echo "preset = $preset"
-
+	echo "multi_pass = $multi_pass"
+	echo "encoder_type = $encoder_type"
+	echo "CRF = $CRF"
+	
 	if [ -z "$source_path" ]; then
 		echo "Usage: $0 -source <source_path>"
 		exit 1
 	fi
-	
-	if [[ "$encoder" == "qsv" ]]; then 
-		encoder_type="handbrake"
-	fi
-	
 
 
 
